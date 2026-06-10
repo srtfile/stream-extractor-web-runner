@@ -1,0 +1,75 @@
+name: Web Run Extractor
+
+on:
+  workflow_dispatch:
+    inputs:
+      job_id:
+        description: "Unique browser job id"
+        required: true
+        type: string
+      urls:
+        description: "URLs to process, one per line"
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+concurrency:
+  group: web-extractor-${{ github.event.inputs.job_id }}
+  cancel-in-progress: false
+
+jobs:
+  extract-and-publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout main branch
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Save submitted URLs
+        shell: bash
+        run: |
+          cat > urls.txt <<'URLS'
+          ${{ inputs.urls }}
+          URLS
+
+      - name: Run extractor
+        env:
+          JOB_ID: ${{ inputs.job_id }}
+        run: |
+          mkdir -p web-output docs/results
+          python stream_extractor_cli.py \
+            --urls-file urls.txt \
+            --output-dir web-output \
+            --json-name "${JOB_ID}.json" \
+            --markdown-name "${JOB_ID}.md"
+          cp "web-output/${JOB_ID}.json" "docs/results/${JOB_ID}.json"
+          cp "web-output/${JOB_ID}.md" "docs/results/${JOB_ID}.md"
+          cp "web-output/${JOB_ID}.json" "docs/results/latest.json"
+
+      - name: Upload workflow artifact backup
+        uses: actions/upload-artifact@v4
+        with:
+          name: stream-extractor-${{ inputs.job_id }}
+          path: web-output/
+          retention-days: 7
+
+      - name: Publish result to GitHub Pages branch
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./docs
+          publish_branch: gh-pages
+          keep_files: true
