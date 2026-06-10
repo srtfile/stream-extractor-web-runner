@@ -1,0 +1,308 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Stream Extractor Web Runner</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg:#0d1117; --panel:#161b22; --panel2:#0f1624; --line:#30363d;
+      --text:#c9d1d9; --muted:#8b949e; --blue:#1f6feb; --green:#2ea043;
+      --red:#f85149; --yellow:#d29922; --code:#05080d;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin:0;
+      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Arial, sans-serif;
+      background: radial-gradient(circle at top, #14213d, var(--bg) 48%);
+      color: var(--text);
+    }
+    main { max-width: 1120px; margin: 0 auto; padding: 34px 16px 60px; }
+    .hero, .card {
+      background: rgba(22,27,34,.94);
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      box-shadow: 0 22px 70px rgba(0,0,0,.28);
+    }
+    .hero { padding: 26px; margin-bottom: 18px; }
+    .card { padding: 20px; margin-top: 16px; }
+    h1 { margin: 0 0 8px; font-size: clamp(28px, 5vw, 48px); letter-spacing: -0.04em; }
+    h2 { margin: 0 0 12px; font-size: 20px; }
+    p { color: var(--muted); line-height: 1.6; }
+    label { display:block; margin: 16px 0 8px; color: #f0f6fc; font-weight: 800; }
+    input, textarea {
+      width: 100%; border:1px solid var(--line); background:#0d1117; color:var(--text);
+      border-radius: 12px; padding: 12px 14px; font: 14px/1.45 ui-monospace, SFMono-Regular, Consolas, monospace;
+      outline: none;
+    }
+    input:focus, textarea:focus { border-color: var(--blue); box-shadow: 0 0 0 3px rgba(31,111,235,.16); }
+    textarea { min-height: 180px; resize: vertical; }
+    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .grid3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; }
+    .actions { display:flex; gap: 12px; flex-wrap: wrap; margin-top: 18px; align-items:center; }
+    button, a.button {
+      appearance:none; border:0; border-radius: 12px; padding: 12px 16px; color: white;
+      background: var(--blue); font-weight: 900; text-decoration:none; cursor:pointer;
+      display:inline-flex; align-items:center; gap: 8px;
+    }
+    button:disabled { opacity:.55; cursor:not-allowed; }
+    button.secondary, a.secondary { background:#30363d; }
+    button.green { background: var(--green); }
+    button.red { background: var(--red); }
+    .note { margin-top: 14px; padding: 12px 14px; border: 1px solid #3b434e; border-radius: 12px; background:#0d1117; }
+    .danger { border-color: rgba(248,81,73,.4); background: rgba(248,81,73,.08); }
+    .ok { border-color: rgba(46,160,67,.4); background: rgba(46,160,67,.08); }
+    code, pre { background:var(--code); border:1px solid #30363d; border-radius:8px; }
+    code { padding:2px 6px; }
+    pre { padding:12px; overflow:auto; white-space:pre-wrap; word-break:break-word; }
+    .status { color: var(--muted); font-weight: 700; }
+    .spinner {
+      width: 16px; height: 16px; border-radius: 50%; border: 2px solid #445; border-top-color: #fff;
+      display:none; animation: spin .8s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .result-card {
+      background: var(--panel2); border: 1px solid var(--line); border-radius: 14px;
+      padding: 16px; margin: 12px 0;
+    }
+    .pill { display:inline-block; padding: 3px 8px; border-radius:999px; background:#1f2937; color:#cbd5e1; font:700 12px ui-monospace, monospace; margin-right:6px; }
+    .pill.good { background: rgba(46,160,67,.18); color:#7ee787; }
+    .pill.bad { background: rgba(248,81,73,.18); color:#ffa198; }
+    .urlbox { display:flex; gap:8px; align-items:stretch; margin-top:10px; }
+    .urlbox input { flex: 1; }
+    .muted { color: var(--muted); }
+    .small { font-size: 12px; }
+    @media (max-width:760px){ .grid,.grid3{ grid-template-columns: 1fr; } .urlbox{flex-direction:column;} }
+  </style>
+</head>
+<body>
+<main>
+  <section class="hero">
+    <h1>Stream Extractor Web Runner</h1>
+    <p>Run the Python extractor through GitHub Actions and show the output here on this page. The page triggers <code>extract-web.yml</code>, then waits for <code>docs/results/&lt;job_id&gt;.json</code> to be published to GitHub Pages.</p>
+    <div class="note danger">
+      <strong>Token warning:</strong> this page needs a GitHub personal access token to start a workflow from your browser. Do not paste someone else’s token. For public repos, results published to GitHub Pages can be public. Use this only for media you own or have permission to process.
+    </div>
+  </section>
+
+  <section class="card">
+    <h2>Repository</h2>
+    <div class="grid3">
+      <div>
+        <label for="owner">GitHub owner</label>
+        <input id="owner" placeholder="your-username" autocomplete="username" />
+      </div>
+      <div>
+        <label for="repo">Repository name</label>
+        <input id="repo" placeholder="stream-extractor" />
+      </div>
+      <div>
+        <label for="branch">Workflow branch</label>
+        <input id="branch" value="main" />
+      </div>
+    </div>
+
+    <label for="token">GitHub token</label>
+    <input id="token" type="password" placeholder="Fine-grained PAT with Actions: Read and write" autocomplete="off" />
+    <p class="small muted">The token is kept only in this browser tab unless you click “Save settings”.</p>
+
+    <label for="urls">URLs, one per line</label>
+    <textarea id="urls" placeholder="https://example.com/embed/abc123"></textarea>
+
+    <div class="actions">
+      <button class="green" id="runBtn"><span id="spinner" class="spinner"></span>Run and show results</button>
+      <button class="secondary" id="saveBtn">Save settings</button>
+      <button class="secondary" id="clearBtn">Clear token</button>
+      <a class="button secondary" id="actionsLink" href="#" target="_blank" rel="noreferrer">Open Actions</a>
+    </div>
+
+    <div class="note" id="statusBox">
+      <div class="status" id="status">Ready.</div>
+      <div class="small muted" id="jobInfo"></div>
+    </div>
+  </section>
+
+  <section class="card" id="resultsSection" style="display:none">
+    <h2>Results</h2>
+    <div id="summary" class="note"></div>
+    <div id="results"></div>
+  </section>
+</main>
+<script>
+const $ = (id) => document.getElementById(id);
+let pollTimer = null;
+let activeJobId = null;
+
+function loadSettings() {
+  $('owner').value = localStorage.getItem('repoOwner') || '';
+  $('repo').value = localStorage.getItem('repoName') || '';
+  $('branch').value = localStorage.getItem('repoBranch') || 'main';
+}
+
+function saveSettings() {
+  localStorage.setItem('repoOwner', $('owner').value.trim());
+  localStorage.setItem('repoName', $('repo').value.trim());
+  localStorage.setItem('repoBranch', $('branch').value.trim() || 'main');
+  setStatus('Settings saved in this browser. Token was not saved.');
+}
+
+function repoInfo() {
+  return {
+    owner: $('owner').value.trim(),
+    repo: $('repo').value.trim(),
+    branch: $('branch').value.trim() || 'main'
+  };
+}
+
+function pagesBase(owner, repo) {
+  const ownerLower = owner.toLowerCase();
+  const repoLower = repo.toLowerCase();
+  if (repoLower === `${ownerLower}.github.io`) return `https://${owner}.github.io`;
+  return `https://${owner}.github.io/${repo}`;
+}
+
+function updateActionsLink() {
+  const { owner, repo } = repoInfo();
+  $('actionsLink').href = owner && repo ? `https://github.com/${owner}/${repo}/actions/workflows/extract-web.yml` : '#';
+}
+
+function setStatus(msg, isError=false) {
+  $('status').textContent = msg;
+  $('statusBox').className = 'note' + (isError ? ' danger' : '');
+}
+
+function setRunning(running) {
+  $('runBtn').disabled = running;
+  $('spinner').style.display = running ? 'inline-block' : 'none';
+}
+
+function jobId() {
+  const rand = Math.random().toString(36).slice(2, 8);
+  return `web-${Date.now()}-${rand}`;
+}
+
+async function dispatchWorkflow(owner, repo, branch, token, id, urls) {
+  const endpoint = `https://api.github.com/repos/${owner}/${repo}/actions/workflows/extract-web.yml/dispatches`;
+  const res = await fetch(endpoint, {
+    method: 'POST',
+    headers: {
+      'Accept': 'application/vnd.github+json',
+      'Authorization': `Bearer ${token}`,
+      'X-GitHub-Api-Version': '2022-11-28',
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({
+      ref: branch,
+      inputs: { job_id: id, urls: urls }
+    })
+  });
+  if (res.status !== 204) {
+    let body = '';
+    try { body = await res.text(); } catch(e) {}
+    throw new Error(`GitHub API returned ${res.status}. ${body || 'Check token, owner/repo, branch, and workflow filename.'}`);
+  }
+}
+
+async function pollResult(owner, repo, id, startedAt) {
+  const url = `${pagesBase(owner, repo)}/results/${encodeURIComponent(id)}.json?cb=${Date.now()}`;
+  try {
+    const res = await fetch(url, { cache: 'no-store' });
+    if (res.ok) {
+      const data = await res.json();
+      clearInterval(pollTimer);
+      pollTimer = null;
+      setRunning(false);
+      setStatus('Finished. Results loaded below.');
+      renderResults(data, url);
+      return;
+    }
+  } catch (err) {
+    // Usually just means the result file is not published yet.
+  }
+  const elapsed = Math.round((Date.now() - startedAt) / 1000);
+  setStatus(`Workflow started. Waiting for result file... ${elapsed}s`);
+  $('jobInfo').textContent = `Job id: ${id} | Result path: /results/${id}.json`;
+}
+
+function renderResults(data, resultUrl) {
+  $('resultsSection').style.display = 'block';
+  const list = Array.isArray(data) ? data : (data.results || []);
+  const ok = list.filter(x => x.ok).length;
+  $('summary').innerHTML = `Processed <strong>${list.length}</strong> URL(s). Success: <strong>${ok}</strong>. Failed: <strong>${list.length - ok}</strong>.<br><span class="small muted">JSON: ${escapeHtml(resultUrl)}</span>`;
+  const wrap = $('results');
+  wrap.innerHTML = '';
+  list.forEach((item, i) => {
+    const div = document.createElement('div');
+    div.className = 'result-card';
+    if (item.ok) {
+      const mediaUrl = item.url || '';
+      div.innerHTML = `
+        <div><span class="pill good">OK</span><span class="pill">${escapeHtml(item.host || 'unknown')}</span><span class="pill">${escapeHtml(item.type || 'unknown')}</span></div>
+        <p class="small muted">Input: ${escapeHtml(item.input_url || '')}</p>
+        <div class="urlbox">
+          <input readonly value="${escapeAttr(mediaUrl)}" />
+          <button class="secondary" data-copy="${escapeAttr(mediaUrl)}">Copy</button>
+          <a class="button secondary" href="${escapeAttr(mediaUrl)}" target="_blank" rel="noreferrer">Open</a>
+        </div>
+      `;
+    } else {
+      div.innerHTML = `
+        <div><span class="pill bad">FAILED</span><span class="pill">${escapeHtml(item.host || 'unknown')}</span></div>
+        <p class="small muted">Input: ${escapeHtml(item.input_url || '')}</p>
+        <pre>${escapeHtml(item.error || 'Unknown error')}</pre>
+      `;
+    }
+    wrap.appendChild(div);
+  });
+  wrap.querySelectorAll('[data-copy]').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      await navigator.clipboard.writeText(btn.getAttribute('data-copy'));
+      btn.textContent = 'Copied';
+      setTimeout(() => btn.textContent = 'Copy', 1200);
+    });
+  });
+}
+
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"]/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[ch]));
+}
+function escapeAttr(s) {
+  return escapeHtml(s).replace(/'/g, '&#39;');
+}
+
+$('runBtn').addEventListener('click', async () => {
+  const { owner, repo, branch } = repoInfo();
+  const token = $('token').value.trim();
+  const urls = $('urls').value.trim();
+  if (!owner || !repo) return setStatus('Enter GitHub owner and repository name.', true);
+  if (!token) return setStatus('Paste a GitHub token with Actions: Read and write permission.', true);
+  if (!urls) return setStatus('Paste at least one URL.', true);
+  activeJobId = jobId();
+  setRunning(true);
+  $('resultsSection').style.display = 'none';
+  $('results').innerHTML = '';
+  $('summary').innerHTML = '';
+  $('jobInfo').textContent = `Job id: ${activeJobId}`;
+  try {
+    setStatus('Starting GitHub Actions workflow...');
+    await dispatchWorkflow(owner, repo, branch, token, activeJobId, urls);
+    setStatus('Workflow started. Waiting for GitHub Pages result...');
+    const startedAt = Date.now();
+    if (pollTimer) clearInterval(pollTimer);
+    await pollResult(owner, repo, activeJobId, startedAt);
+    pollTimer = setInterval(() => pollResult(owner, repo, activeJobId, startedAt), 5000);
+  } catch (err) {
+    setRunning(false);
+    setStatus(err.message, true);
+  }
+});
+
+$('saveBtn').addEventListener('click', saveSettings);
+$('clearBtn').addEventListener('click', () => { $('token').value = ''; setStatus('Token cleared from this page.'); });
+['owner','repo','branch'].forEach(id => $(id).addEventListener('input', updateActionsLink));
+loadSettings();
+updateActionsLink();
+</script>
+</body>
+</html>
